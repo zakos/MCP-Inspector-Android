@@ -177,6 +177,7 @@ jobs:
 - [x] `tools/call` + válaszpanel (formázott/nyers)
 - [x] Naplóképernyő, másolás/megosztás
 - [x] Ikon, app név, verziószám
+- [x] Első zöld CI build (`testDebugUnitTest` + `assembleDebug`, APK artifact)
 - [ ] Valós MCP szerverrel végzett manuális teszt (SSE + JSON válasz is)
 - [ ] `ProfileStore` esetleges migrálása `EncryptedSharedPreferences`-re, ha a
       sima DataStore-t nem tartjuk elégségesnek
@@ -239,9 +240,32 @@ ezeket csak a CI fogja ténylegesen lefordítani.
   bejegyzések, teljes exchange másolása), Material3 téma, `MainActivity`
   Navigation Compose-zal
 
-**Ismert kockázatok / amit érdemes lesz megnézni az első CI futás után:**
+**Ismert kockázatok / amit érdemes lesz megnézni:**
 - A `menuAnchor()` (no-arg) az enum dropdown mezőben deprecated a használt
   Compose BOM-ban (2024.09.03) — fordítási warningot ad, de nem hibát;
   ha zavaró, cseréld `menuAnchor(MenuAnchorType.PrimaryNotEditable)`-re.
 - Valós MCP szerver ellen még nem lett tesztelve sem az SSE, sem a sima
-  JSON válaszág — ezt manuálisan érdemes elvégezni az első build után.
+  JSON válaszág — ezt manuálisan érdemes elvégezni.
+
+### 2026-09-16 — CI zöldre javítva (2 kör)
+
+Az első push (`dbac2d9`) pirosan futott: `ToolScreen.kt` a
+`androidx.compose.material3.ExposedDropdownMenu` composable-t importálta,
+ami a resolvolt Material3 verzióban nem létező top-level szimbólum volt
+("Unresolved reference"). Első javítási kísérletként lecseréltem a
+dokumentáció alapján javasolt `DropdownMenu` + `exposedDropdownSize()`
+párosra (`6ad01dd`) — ez is pirosra futott, mert `exposedDropdownSize()`-t
+is importáltam.
+
+**A tényleges ok:** a Material3 `ExposedDropdownMenuBoxScope` interfész
+`menuAnchor()` és `exposedDropdownSize()` függvényei az interfész TAG-jai
+(member extension function), nem a `androidx.compose.material3` csomag
+top-level deklarációi — ezért `import`-tal nem érhetők el, csak automatikusan,
+implicit receiver alapján, az `ExposedDropdownMenuBox { ... }` content
+lambdáján belül. A hibás `import androidx.compose.material3.exposedDropdownSize`
+sor eltávolításával (`2f46c90`) a build zöldre fordult.
+
+**Eredmény:** a `claude/new-session-xgeugt` branch HEAD-je (`2f46c90`) zöld
+CI-val fut — `testDebugUnitTest` (mind a 20 unit teszt) és `assembleDebug`
+is sikeres, a `mcp-inspector-debug` APK artifact feltöltve
+(run: https://github.com/zakos/Android-MCP-Client/actions/runs/35133357828).
