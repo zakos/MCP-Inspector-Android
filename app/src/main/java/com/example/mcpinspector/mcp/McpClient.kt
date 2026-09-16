@@ -41,7 +41,13 @@ class McpClient(
     private val profile: ServerProfile,
     private val onExchange: (McpExchange) -> Unit = {},
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        // A "jsonrpc" mező értéke mindig a deklarált default ("2.0"), enélkül a
+        // kotlinx.serialization kihagyná a kimenő kérésből - a JSON-RPC 2.0 spec
+        // szerint viszont ez kötelező tag, hiánya "invalid request" hibát okoz.
+        encodeDefaults = true
+    }
     private val http = HttpClient(CIO)
 
     private var sessionId: String? = null

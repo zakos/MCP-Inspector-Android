@@ -269,3 +269,31 @@ sor eltávolításával (`2f46c90`) a build zöldre fordult.
 CI-val fut — `testDebugUnitTest` (mind a 20 unit teszt) és `assembleDebug`
 is sikeres, a `mcp-inspector-debug` APK artifact feltöltve
 (run: https://github.com/zakos/Android-MCP-Client/actions/runs/35133357828).
+
+### 2026-09-16 — Valós szerver ellen tesztelve: hiányzó `"jsonrpc"` mező javítva
+
+A felhasználó telepítette az APK-t, felvett egy MantisMCP szerverprofilt,
+és kapcsolódáskor **"invalid JSON-RPC 2.0 request"** hibát kapott a
+szervertől.
+
+**Ok:** `McpClient.kt`-ban a kimenő kéréseket szerializáló `Json` példány
+(`Json { ignoreUnknownKeys = true }`) nem állította be az
+`encodeDefaults = true`-t. A `JsonRpcRequest.jsonrpc` és
+`JsonRpcNotification.jsonrpc` mező default értéke `"2.0"`, és mivel ezt
+soha nem írjuk felül explicit más értékre, a kotlinx.serialization
+(alapértelmezés szerint `encodeDefaults = false`) **teljesen kihagyta**
+ezt a mezőt a kimenő JSON-ból. A ténylegesen elküldött body tehát így
+nézett ki: `{"id":1,"method":"initialize","params":{...}}` — a
+`"jsonrpc":"2.0"` tag nélkül, amit a JSON-RPC 2.0 spec kötelezőként ír elő.
+A MantisMCP (jogosan) ezt érvénytelen kérésként utasította el.
+
+**Javítás:** `encodeDefaults = true` hozzáadva a `McpClient.kt` `Json`
+konfigurációjához, plusz regressziós unit teszt (`JsonRpcTest.kt`), ami
+leellenőrzi, hogy a szerializált request/notification mindig tartalmazza
+a `"jsonrpc":"2.0"` tagot.
+
+**Tanulság a projekthez:** ha a jövőben újabb JSON-RPC-szerű vagy más
+fix-mezős kimenő üzenetet szerializálunk kotlinx.serialization-nal,
+mindig ellenőrizni kell, hogy a default-értékű mezők ténylegesen bekerülnek-e
+a kimenetbe (`encodeDefaults`), különösen ha a mező kötelező a fogadó fél
+protokollja szerint.
